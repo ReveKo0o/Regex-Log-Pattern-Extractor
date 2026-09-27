@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Regex & Log Pattern Extractor</title>
+    <style>
+        :root {
+            --bg-color: #080808;
+            --panel-bg: #0f0f0f;
+            --text-color: #00ff66;
+            --dim-text: #777777;
+            --border-color: #333333;
+            --accent-color: #00f0ff;
+            --warning-color: #ffb700;
+        }
+
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 950px;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            font-size: 1.1rem;
+            color: var(--accent-color);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-top: 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .section {
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+            padding: 15px;
+            background: var(--bg-color);
+        }
+
+        .section h2 {
+            font-size: 0.85rem;
+            color: var(--accent-color);
+            margin-top: 0;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        textarea {
+            width: 100%;
+            height: 140px;
+            background: #000;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            font-family: 'Courier New', Courier, monospace;
+            padding: 10px;
+            box-sizing: border-box;
+            resize: vertical;
+            font-size: 0.85rem;
+        }
+
+        textarea:focus {
+            border-color: var(--accent-color);
+            outline: none;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        button {
+            background: #000;
+            border: 1px solid var(--text-color);
+            color: var(--text-color);
+            font-family: 'Courier New', Courier, monospace;
+            padding: 8px 15px;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: var(--text-color);
+            color: #000;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        @media (max-width: 768px) {
+            .results-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        pre {
+            background: #000;
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            overflow-x: auto;
+            font-size: 0.8rem;
+            max-height: 220px;
+            margin: 0;
+            color: #d0d0d0;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .stat-badge {
+            font-size: 0.75rem;
+            color: var(--dim-text);
+            margin-bottom: 5px;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1> REGEX & LOG PATTERN EXTRACTOR [DEVELOPER FILTER]</h1>
+
+        <!-- Input Section -->
+        <div class="section">
+            <h2>RAW INPUT LOG / TEXT DATA</h2>
+            <textarea id="raw-input" placeholder="Paste your messy logs, curl commands, or network data dumps here..."></textarea>
+            <div class="btn-group">
+                <button onclick="processData()">[+] EXTRACT & ANALYZE PATTERNS</button>
+                <button onclick="clearAll()" style="border-color: var(--warning-color); color: var(--warning-color);">[X] CLEAR</button>
+            </div>
+        </div>
+
+        <!-- Results Grid -->
+        <div class="results-grid">
+            <!-- IPs -->
+            <div class="section">
+                <h2>IP ADDRESSES</h2>
+                <span class="stat-badge" id="ip-stat">Unique: 0</span>
+                <pre id="ip-output">No IPs extracted yet.</pre>
+            </div>
+
+            <!-- URLs / Domains -->
+            <div class="section">
+                <h2>URLS & DOMAINS</h2>
+                <span class="stat-badge" id="url-stat">Unique: 0</span>
+                <pre id="url-output">No URLs extracted yet.</pre>
+            </div>
+        </div>
+
+        <!-- Contextual Mapping / Line Relationships -->
+        <div class="section">
+            <h2>CONTEXTUAL CORRELATIONS (IP + URL LINE PAIRS)</h2>
+            <span class="stat-badge">Lines containing both an IP and a URL/Endpoint</span>
+            <pre id="context-output">No correlations found yet.</pre>
+        </div>
+    </div>
+
+    <script>
+        function processData() {
+            const text = document.getElementById('raw-input').value;
+            if (!text.trim()) {
+                alert('Please enter some raw log or text data first.');
+                return;
+            }
+
+            // 1. Regex Definitions
+            // IPv4 Regex
+            const ipRegex = /\b(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/g;
+            
+            // URL / Domain Regex
+            const urlRegex = /\bhttps?:\/\/[^\s<>"]+|\bwww\.[^\s<>"]+|\b[a-zA-Z0-9][-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*)/g;
+
+            // 2. Extraction and Deduplication
+            const ips = [...new Set(text.match(ipRegex) || [])];
+            const urls = [...new Set(text.match(urlRegex) || [])];
+
+            // Print results
+            document.getElementById('ip-output').innerText = ips.length > 0 ? ips.join('\n') : 'No IP addresses found.';
+            document.getElementById('ip-stat').innerText = `Unique: ${ips.length}`;
+
+            document.getElementById('url-output').innerText = urls.length > 0 ? urls.join('\n') : 'No URLs found.';
+            document.getElementById('url-stat').innerText = `Unique: ${urls.length}`;
+
+            // 3. Contextual Line Correlation (Contextual Line Correlation: Those with IP and URL on the same line)
+            const lines = text.split('\n');
+            let correlatedPairs = [];
+
+            lines.forEach((line, index) => {
+                const hasIp = ipRegex.test(line);
+                // For reset to regex test pointer
+                ipRegex.lastIndex = 0;
+                
+                const hasUrl = urlRegex.test(line);
+                urlRegex.lastIndex = 0;
+
+                if (hasIp && hasUrl) {
+                    correlatedPairs.push(`[Line ${index + 1}] ${line.trim()}`);
+                }
+            });
+
+            const contextOutput = document.getElementById('context-output');
+            if (correlatedPairs.length > 0) {
+                contextOutput.innerText = correlatedPairs.join('\n\n');
+            } else {
+                contextOutput.innerText = '[-] No overlapping lines containing both IP and URL/Domain found.';
+            }
+        }
+
+        function clearAll() {
+            document.getElementById('raw-input').value = '';
+            document.getElementById('ip-output').innerText = 'No IPs extracted yet.';
+            document.getElementById('ip-stat').innerText = 'Unique: 0';
+            document.getElementById('url-output').innerText = 'No URLs extracted yet.';
+            document.getElementById('url-stat').innerText = 'Unique: 0';
+            document.getElementById('context-output').innerText = 'No correlations found yet.';
+        }
+    </script>
+</body>
+</html>
