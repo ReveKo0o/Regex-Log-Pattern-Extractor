@@ -6,13 +6,13 @@
     <title>Regex & Log Pattern Extractor</title>
     <style>
         :root {
-            --bg-color: #080808;
-            --panel-bg: #0f0f0f;
-            --text-color: #00ff66;
+            --bg-color: #000000;
+            --panel-bg: #1f035d;
+            --text-color: #1054dc;
             --dim-text: #777777;
-            --border-color: #333333;
-            --accent-color: #00f0ff;
-            --warning-color: #ffb700;
+            --border-color: #55512a;
+            --accent-color: #f4f8f8;
+            --warning-color: #f50000;
         }
 
         body {
@@ -186,12 +186,11 @@
             }
 
             // 1. Regex Definitions
-            // IPv4 Regex
+            // IPv4 Regex ()
             const ipRegex = /\b(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/g;
-            
-            // URL / Domain Regex
-            const urlRegex = /\bhttps?:\/\/[^\s<>"]+|\bwww\.[^\s<>"]+|\b[a-zA-Z0-9][-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*)/g;
 
+            // URL / Domain Regex ()
+            const urlRegex = /\bhttps?:\/\/[^\s<>\"]+|\bwww\.[^\s<>\"]+|\b(?!(?:\d{1,3}\.){3}\d{1,3}\b)(?=[a-zA-Z0-9-]*[a-zA-Z])[a-zA-Z0-9][-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*)/g;
             // 2. Extraction and Deduplication
             const ips = [...new Set(text.match(ipRegex) || [])];
             const urls = [...new Set(text.match(urlRegex) || [])];
@@ -203,28 +202,30 @@
             document.getElementById('url-output').innerText = urls.length > 0 ? urls.join('\n') : 'No URLs found.';
             document.getElementById('url-stat').innerText = `Unique: ${urls.length}`;
 
-            // 3. Contextual Line Correlation (Contextual Line Correlation: Those with IP and URL on the same line)
+// 3. Contextual Line Correlation (IP <-> URL Mapping)
             const lines = text.split('\n');
             let correlatedPairs = [];
 
             lines.forEach((line, index) => {
-                const hasIp = ipRegex.test(line);
-                // For reset to regex test pointer
-                ipRegex.lastIndex = 0;
-                
-                const hasUrl = urlRegex.test(line);
-                urlRegex.lastIndex = 0;
+                const lineIps = [...new Set(line.match(ipRegex) || [])];
+                const lineUrls = [...new Set(line.match(urlRegex) || [])];
 
-                if (hasIp && hasUrl) {
-                    correlatedPairs.push(`[Line ${index + 1}] ${line.trim()}`);
+                if (lineIps.length > 0 && lineUrls.length > 0) {
+                    lineIps.forEach(ip => {
+                        lineUrls.forEach(url => {
+                            correlatedPairs.push(`[Line ${index + 1}] IP: ${ip}  --->  URL: ${url}`);
+                        });
+                    });
                 }
             });
 
+            const uniquePairs = [...new Set(correlatedPairs)];
+            
             const contextOutput = document.getElementById('context-output');
-            if (correlatedPairs.length > 0) {
-                contextOutput.innerText = correlatedPairs.join('\n\n');
+            if (uniquePairs.length > 0) {
+                contextOutput.innerText = uniquePairs.join('\n');
             } else {
-                contextOutput.innerText = '[-] No overlapping lines containing both IP and URL/Domain found.';
+                contextOutput.innerText = '[-] No direct IP-to-URL correlations found on the same lines.';
             }
         }
 
